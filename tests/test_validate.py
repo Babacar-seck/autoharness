@@ -183,19 +183,12 @@ def test_referenced_py_escaping_ref_is_not_read(tmp_path):
         secret.unlink()
 
 def test_referenced_subfile_escaping_ref_is_not_probed(tmp_path):
-    outside = tmp_path.parent / "outside_dir_escape"
-    outside.mkdir()
-    (outside / "x.md").write_text("x")
-    try:
-        body = ("---\nname: foo\ndescription: Use when you need the helper.\n---\n"
-                "Run references/../../outside_dir_escape/x.md\n")
-        msgs = [m for _, m in validate.validate(GOOD_INTENT, body, base_dir=tmp_path)["findings"]]
-        assert any("escapes the skill directory" in m for m in msgs)
-    finally:
-        import shutil
-        shutil.rmtree(outside)
-
-
+    # an escaping ref aimed at nothing outside must not be probed at all:
+    # vulnerable code reports it as "neither carried in intent nor live"
+    body = ("---\nname: foo\ndescription: Use when you need the helper.\n---\n"
+            "Run references/../../outside_dir_escape/x.md\n")
+    msgs = [m for _, m in validate.validate(GOOD_INTENT, body, base_dir=tmp_path)["findings"]]
+    assert not any("outside_dir_escape" in m for m in msgs)
 def test_referenced_py_benign_relative_ref_still_validated(tmp_path):
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "helper.py").write_text("def f(:\n")

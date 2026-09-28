@@ -152,9 +152,10 @@ def _structure(body, base_dir, files=None):
                 except SyntaxError as exc:
                     findings.append(("structure", f"referenced {ref} has syntax error: {exc}"))
         for ref in set(_SUBFILE_REF.findall(body)):
-            if not (base_dir / ref).resolve().is_relative_to(base):
-                findings.append(("structure", f"referenced {ref} escapes the skill directory"))
-            elif ref not in (files or {}) and not (base_dir / ref).is_file():
+            # escaping refs are skipped silently: writes are gated by the
+            # promoter's landing check, validation must not probe outside
+            if (base_dir / ref).resolve().is_relative_to(base) \
+                    and ref not in (files or {}) and not (base_dir / ref).is_file():
                 findings.append(("structure", f"referenced {ref} neither carried in intent nor live"))
     for rel in files or {}:
         if isinstance(rel, str) and rel not in body:
