@@ -2,6 +2,7 @@
 from autoharness import config
 from autoharness.lib import redact
 
+
 def test_cache_key_normalized():
     redact._rules.cache_clear()
     redact.redact("hello")
