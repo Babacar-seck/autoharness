@@ -1,6 +1,7 @@
 """Verify _remove_subfile uses exact-path matching, not substring."""
 import re
 
+
 def _is_referenced(rel, live):
     _ref = re.compile(r"(?<![A-Za-z0-9_./-])" + re.escape(rel) + r"(?![A-Za-z0-9_./-])")
     return _ref.search(live) is not None
