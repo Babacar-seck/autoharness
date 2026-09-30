@@ -140,15 +140,22 @@ def _structure(body, base_dir, files=None):
             findings.append(("category",
                              f"category {cat!r} must be a single safe segment (letters/digits/._-)"))
     if base_dir is not None:
+        base = base_dir.resolve()
         for ref in set(_PY_REF.findall(body)):
             f = base_dir / ref
+            if not f.resolve().is_relative_to(base):
+                findings.append(("structure", f"referenced {ref} escapes the skill directory"))
+                continue
             if f.is_file():
                 try:
                     ast.parse(f.read_text())
                 except SyntaxError as exc:
                     findings.append(("structure", f"referenced {ref} has syntax error: {exc}"))
         for ref in set(_SUBFILE_REF.findall(body)):
-            if ref not in (files or {}) and not (base_dir / ref).is_file():
+            # escaping refs are skipped silently: writes are gated by the
+            # promoter's landing check, validation must not probe outside
+            if (base_dir / ref).resolve().is_relative_to(base) \
+                    and ref not in (files or {}) and not (base_dir / ref).is_file():
                 findings.append(("structure", f"referenced {ref} neither carried in intent nor live"))
     for rel in files or {}:
         if isinstance(rel, str) and rel not in body:
