@@ -226,6 +226,51 @@ def test_emit_session_start_no_context_prints_nothing(capsys):
     assert capsys.readouterr().out == ""
 
 
+# --- _emit deny output: the host reads stdout, not the return value, so the write
+# backstop's stdout JSON is the security boundary and needs its own coverage (#138) ---
+
+
+def test_emit_deny_writes_permission_decision_to_stdout(capsys):
+    dispatch._emit({"deny": True, "reason": "reflector may only stage intents, not write files"})
+    payload = json.loads(capsys.readouterr().out)
+    hso = payload["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert hso["permissionDecision"] == "deny"
+    assert hso["permissionDecisionReason"] == "reflector may only stage intents, not write files"
+
+
+def test_emit_deny_falls_back_to_a_reason_when_absent(capsys):
+    # a deny without a reason must still deny, with a non-empty reason the host can show
+    dispatch._emit({"deny": True})
+    hso = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    assert hso["permissionDecision"] == "deny"
+    assert hso["permissionDecisionReason"]
+
+
+def test_emit_deny_is_single_line_json_on_stdout_only(capsys):
+    # the host parses one JSON object per hook invocation: a wrapped payload would not parse
+    dispatch._emit({"deny": True, "reason": "no"})
+    captured = capsys.readouterr()
+    assert len(captured.out.strip().splitlines()) == 1
+    assert captured.err == ""
+
+
+def test_denied_reflector_write_reaches_the_host_as_deny_json(tmp_path, capsys):
+    # end to end through the dispatcher: dispatch() decides, _emit is what the host actually reads
+    dispatch._emit(dispatch.dispatch({"hook_event_name": "PreToolUse", "tool_name": "Write",
+                                       "agent_type": "autoharness:reflector"}, roots=_roots(tmp_path)))
+    hso = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    assert hso["permissionDecision"] == "deny"
+    assert "stage intents" in hso["permissionDecisionReason"]
+
+
+def test_denied_child_write_reaches_the_host_as_deny_json(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv(config.CHILD_SESSION_ENV, "1")
+    dispatch._emit(dispatch.dispatch({"hook_event_name": "PreToolUse", "tool_name": "Write",
+                                       "session_id": "s7"}, roots=_roots(tmp_path)))
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 # --- Phase 11 (H): every PreToolUse advances the activity counter; Stop no longer bumps it ---
 
 def test_pretooluse_advances_activity_counter(tmp_path):
