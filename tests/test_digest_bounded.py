@@ -1,7 +1,5 @@
 """Regression: digest() must read only end_offset bytes, not the entire transcript."""
-import os
-import tempfile
-from unittest.mock import patch, mock_open
+from unittest.mock import mock_open, patch
 
 from autoharness.hook.capture import digest
 
@@ -19,9 +17,11 @@ def test_digest_bounded_read(tmp_path):
 
     # Read with end_offset covering only the first line
     first_line_end = len(lines[0].encode("utf-8"))
-    result = digest(str(transcript), first_line_end)
+    bounded_open = mock_open(read_data=content)
+    with patch("builtins.open", bounded_open):
+        result = digest(str(transcript), first_line_end)
 
-    # Should contain the first exchange but not the second
+    bounded_open.return_value.read.assert_called_once_with(first_line_end)
     assert "hello" in result
     assert "hi there" not in result
 
