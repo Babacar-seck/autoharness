@@ -122,6 +122,19 @@ configure unless you want to change the pace.
 | `AUTOHARNESS_GRADUATION_SUSPENDED` | `0` | Set to `1` to park graduation review entirely, so nothing is archived for going unused. Meant for when you have reason to doubt the recall surface: archiving on zero use would then be punishing skills for never having been offered. Capacity contention still applies. |
 | `AUTOHARNESS_SNAPSHOT_KEEP` | `5` | How many pre-run snapshots of each skill tree the curator keeps before merging. A merge is the one operation a single atomic rename can't undo. |
 
+**Notify — hearing about it as it happens**
+
+Off by default. The session-start summary line reports a run one session late, with counts but no
+names; these push the same run account out as soon as a drain finishes. Fail-open: the notifier runs
+only after the account is written and the intent queue cleared, so a missing, failing or hung
+notifier can delay a drain but never fail or replay it.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `AUTOHARNESS_NOTIFY` | _(unset)_ | Set to `desktop` for a native notification per run — `osascript` on macOS, `notify-send` on Linux when installed (a silent no-op otherwise). Names what landed and what was rejected, e.g. `create foo, patch bar · rejected: baz`. On macOS the notification is attributed to Script Editor; if nothing appears, allow it under System Settings → Notifications. |
+| `AUTOHARNESS_NOTIFY_CMD` | _(unset)_ | A command (split like a shell argv, never run through a shell) that receives the run record JSON — the same shape as `runs/<run-id>.json` — on stdin, with the one-line summary in `AUTOHARNESS_NOTIFY_SUMMARY`. The hook for Slack, webhooks, or anything else. Skill names are redacted first, and the command runs with the child-session guard set, so a notifier that launches `claude` isn't itself captured. Works alongside `desktop`. |
+| `AUTOHARNESS_NOTIFY_TIMEOUT_S` | `5` | Whole seconds, minimum 1, per channel: how long a notifier may hold up a drain. The `/learn` drain runs inside the host's Stop hook, so this is also the most it can delay a turn. |
+
 Set them in the environment Claude Code launches with — either the shell
 (`export AUTOHARNESS_REFLECT_EVERY_N=10`) or the `env` map in `.claude/settings.json`:
 
